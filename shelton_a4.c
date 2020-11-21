@@ -62,17 +62,7 @@ static inline void initADC(void) {
     ADCSRB &= ~(1 << ADTS1);
     ADCSRB &= ~(1 << ADTS2);
     //ADC5 enable 
-    //if (count == 0) {
-    ADMUX |= (1 << MUX0);
-    ADMUX &= ~(1 << MUX1);
-    ADMUX |= (1 << MUX2);
-    ADMUX &= ~(1 << MUX3);
-    ADCSRA |= (1 << ADSC);
-    ///changing the allingment
-    ADMUX |= (1 << ADLAR);
-    //    }else if (count ==1){
-    //        ADMUX=0;
-    //    }
+
 }
 
 static inline int calibrate(float voltage) {
@@ -88,67 +78,59 @@ static inline int calibrate(float voltage) {
 int main(void) {
     USART0_init();
     // for two green LED which signify states
-  
+
     DDRB |= 0b11000000;
     DDRC &= 0x00;
     // ----------Initialize------------//
     initPWM();
     initADC();
     // 8 bit since we are using 16 bit PWM
-//    uint8_t dutyCycle = 0;
-//    //voltage 16 bit intialization
-//    uint16_t voltagePC0 = 0;
-//    float voltage = 0;
+    uint8_t dutyCycle = 0;
+    //voltage 16 bit intialization
+    uint16_t voltagePC0 = 0;
+    uint16_t voltagePC5 = 0;
+    float voltage = 0;
+    float voltageI = 0;
+    float diff = 0;
     //ADC start conversion
 
     // ------ Event loop ------ //
     while (1) {
         printString("\nLoop : ");
+        ADMUX |= (1 << MUX0);
+        ADMUX |= (1 << ADLAR);
+        voltagePC5 = ADC;
+        voltageI = (float) voltagePC5 / 256.00 * 5.00; // c
+         
+        ADMUX |= (1 << MUX0);
+        ADMUX &= ~(1 << MUX1);
+        ADMUX |= (1 << MUX2);
+        ADMUX &= ~(1 << MUX3);
+        ADCSRA |= (1 << ADSC);
+        ///changing the allingment
 
         voltagePC0 = ADC;
         //conversion
         voltage = (float) voltagePC0 / 256.00 * 5.00; // converting to PWM recognised values
         //check if value is between calibrated range
-        printWord(voltage);
+        printWord(voltagePC0);
         int flag = calibrate(voltage);
         if (flag == 1) {
             //if voltage is maxvalue then assign the dutycycle 255
-            if (voltage >= 229.5) {
-                dutyCycle = 2000; //255 = 100% of 255, hence dutyCycle is 100%
-            }//if voltage is minvalue then assign the dutycycle 2055
-            else if (voltage <= 2.55) {
-                dutyCycle = 300;
-            }//assign voltage
-            else {
+            //if (voltage >= 229.5) {
+//                dutyCycle = 2000; //255 = 100% of 255, hence dutyCycle is 100%
+//            }//if voltage is minvalue then assign the dutycycle 2055
+//            else if (voltage <= 2.55) {
+//                dutyCycle = 300;
+//            }//assign voltage
+//            else {
                 dutyCycle = voltage * 100; //255 = 100% of 255, hence dutyCycle is 100%
             }
-        }
+        //}
         // set dutyCycle for OCR1B
         OCR1B = dutyCycle;
         _delay_ms(500);
-    } /* End event loop */
+    }
     return 0;
 }
 
-//ISR(ADC_vect)
-//{
-//    uint8_t tmp;            // temp register for storage of misc data
-//
-//    tmp = ADMUX;            // read the value of ADMUX register
-//    tmp &= 0x0F;            // AND the first 4 bits (value of ADC pin being used) 
-//
-//    ADCvalue = ADCH;        // read the sensor value
-//
-//    if (tmp == 0)
-//    {
-//        // put ADCvalue into whatever register you use for ADC0 sensor
-//        ADMUX++;            // add 1 to ADMUX to go to the next sensor
-//    }
-//    
-//    else if (tmp == 1)
-//    {
-//        // put ADCvalue into whatever register you use for ADC1 sensor
-//         ADMUX &= 0xF8;  // clear the last 4 bits to reset the mux to ADC0
-//    }
-// 
-//}
