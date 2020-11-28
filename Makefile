@@ -43,7 +43,7 @@ AVRDUDE = avrdude
 ##########------------------------------------------------------##########
 
 ## The name of your project / c file (without the .c)
-TARGET = shelton_a4
+TARGET = shelton_project
 ## Or name it automatically after the enclosing directory
 # TARGET = $(lastword $(subst /, ,$(CURDIR)))
 
