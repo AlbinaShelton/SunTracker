@@ -1,15 +1,12 @@
-/*Albina Shelton     */
-/*SER 456            */
+/*Albina Shelton    */
+/*SER 456           */
+/*  Smart Sunflower */
 #include <avr/io.h>
 #include <USART.h>
-#include <avr/interrupt.h>    // Needed to use interrupts   
 #include <util/setbaud.h>
 #include <util/delay.h>
-//volatile uint8_t flag;
-//volatile uint16_t voltageI;
-//volatile uint16_t voltageII;
-//float voltageFirst;
-//float voltageSecond;
+  uint16_t voltagePC1;
+  uint16_t voltagePC5 ;
 
 void USART0_init(void) {
     UBRR0H = UBRRH_VALUE;
@@ -34,8 +31,8 @@ static inline void initPWM(void) {
     TCCR1B |= (1 << WGM12);
     TCCR1A &= ~(1 << WGM11);
     TCCR1A |= (1 << WGM10);
-    // set CS12:10(all located in TCCR1B)
-    TCCR1B &= ~(1 << CS12); //setting 1/8 pre-scalar
+     //setting 1/8 pre-scalar
+    TCCR1B &= ~(1 << CS12);
     TCCR1B &= ~(1 << CS10);
     TCCR1B |= (1 << CS11);
     // set COM1B0:1(all located in TCCR1A)
@@ -66,125 +63,111 @@ static inline void initADC(void) {
 
 }
 
-uint16_t adc_read_PC5() {
-    ADMUX |= (1 << MUX0);
-    ADMUX &= ~(1 << MUX1);
-    ADMUX |= (1 << MUX2);
-    ADMUX &= ~(1 << MUX3);
-
-    ADCSRA |= (1 << ADSC);
-
-    ADMUX |= (1 << ADLAR);
-
-}
-
-uint16_t adc_read_PC1() {
+ uint16_t adc_read_PC1(void) {
+     //ADC1 is enable
     ADMUX |= (1 << MUX0);
     ADMUX &= ~(1 << MUX1);
     ADMUX |= (1 << MUX2);
     ADMUX |= (1 << MUX3);
-
+    //ADC start conversion
     ADCSRA |= (1 << ADSC);
-
     ADMUX |= (1 << ADLAR);
-
+    voltagePC1 = ADC;
+    return voltagePC1;
 }
 
-//static inline int calibrate(float voltage) {
-//    int maxValue = 229.5;
-//    int minValue = 2.55;
-//    int flag = 0;
-//    if ((voltage < maxValue) | (voltage > minValue)) {
-//        flag = 1;
-//    }
-//    return flag;
-//}
-
+ uint16_t adc_read_PC5(void) {
+     //ADC5 enable
+    ADMUX |= (1 << MUX0);
+    ADMUX &= ~(1 << MUX1);
+    ADMUX |= (1 << MUX2);
+    ADMUX &= ~(1 << MUX3);
+    //ADC start conversion
+    ADCSRA |= (1 << ADSC);
+    ADMUX |= (1 << ADLAR);
+    voltagePC5 = ADC;
+    return voltagePC5;
+}
 int main(void) {
-    USART0_init();
-    // for two green LED which signify states
-
+   
+     //set pin for 
     DDRB |= 0b11000000;
     DDRC &= 0x00;
-
+    //initialize PMW and USART
     initPWM();
-
-    // 8 bit since we are using 16 bit PWM
-    uint8_t dutyCycle;
-    //voltage 16 bit intialization
-    uint16_t voltagePC1 = 0;
-    uint16_t voltagePC5 = 0;
+    USART0_init();
+     
+    //voltage initialization
     float voltage5 = 0;
     float voltage5_temp;
     float voltageI = 0;
     float voltageI_temp;
-    float diff = 0;
-    float pos;
-    //ADC start conversion
 
-    // ------ Event loop ------ //
+    float pos=0;
+    
+
+    // Event Loop
     while (1) {
 
         //reading PC1 ADC value
-        printString("\nLoop : ");
+        printString("\nLDR 1 : ");
+        //init and read PC 1
         initADC();
         adc_read_PC1();
-        voltagePC1 = ADC;
+       //set temp value for LDR 1
         voltageI_temp = voltageI;
+         // converting to PWM recognised values
         voltageI = (float) voltagePC1 / 256.00 * 5.00;
+        //pritn value for LDR 1
         printWord(voltageI);
-        _delay_ms(100);
+        _delay_ms(10);
 
         //Reading PC ADC value
-        printString("\nLoop2 : ");
-
+        printString("\nLDR 5 : ");
+        //init and read PC 5
         initADC();
         adc_read_PC5();
-        voltagePC5 = ADC;
+       //set temp value for  LDR 5
         voltage5_temp = voltage5;
-
-        voltage5 = (float) voltagePC5 / 256.00 * 5.00; // converting to PWM recognised values
-
+        // converting to PWM recognised values
+        voltage5 = (float) voltagePC5 / 256.00 * 5.00; 
+        //print value from LDR 5
         printWord(voltage5);
-        _delay_ms(100);
+        _delay_ms(10);
 
-        if (voltageI >= (voltage5+2)) {
-            if (voltageI == voltageI_temp) {
+        //compare the value from LDR1 and LDR5
+        if (voltageI <= (voltage5)) {
+            //stay at same position
+            if (voltage5 == voltage5_temp) {
                 pos = pos;
             } else {
-                pos += 20;
+                //move back
+                pos -= 30;
             }
-
-        } else if (voltage5 > voltageI) {
-            if (voltage5 == voltage5_temp) {
-                pos == pos;
+        //compare the value from LDR5 and LDR1
+        } else  {
+            //stay at same position
+            if (voltageI== voltageI_temp) {
+                pos = pos;
             } else {
-                pos = pos - 50;
+                //move front
+                pos += 30;
             }
 
         }
+        //set the min value for servo motor position 300
         if (pos < 300) {
             pos = 300;
         }
+        //set the maximum value for servo motor position 2300
         if (pos > 2300) {
             pos = 2300;
         }
-        //pos=1700;
-        printString("\nLoop3 : ");
+        //printing value for the servomotor position
+        printString("\nServo motor position : ");
         printWord(pos);
-        //if voltage is maxvalue then assign the dutycycle 255
-        //if (voltage >= 229.5) {
-        //                dutyCycle = 2000; //255 = 100% of 255, hence dutyCycle is 100%
-        //            }//if voltage is minvalue then assign the dutycycle 2055
-        //            else if (voltage <= 2.55) {
-        //                dutyCycle = 300;
-        //            }//assign voltage
-        //            else {
-        //dutyCycle = voltageI * 100; //255 = 100% of 255, hence dutyCycle is 100%
 
-        // }
-
-        // set dutyCycle for OCR1B
+        // set position  for OCR1B servo motor
         OCR1B = pos;
         _delay_ms(100);
     }
